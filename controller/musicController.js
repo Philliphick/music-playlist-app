@@ -1,106 +1,133 @@
 const axios = require('axios');
 const express = require("express");
 const createError = require('http-errors');
+const Song = require("../models/playlist");
+
+
+const apiKey = process.env.YoutubeApiKey;
+const apiHost = process.env.YoutubeApiHost;
+
 const songs = []; 
 
+exports.getAllSongs = async function (req, res, next) { 
+  try { 
+    const songItem = await Song.find();
+    res.send(songItem);
+  } catch (err) {
+    return next(createError(500, err.message));
+  }
+};
 
-
-const youtubeMusicApiKey = '163de1b67fmsh32272f54d1aac12p1cacedjsnd31d2446f36d';
-exports.getYouTubeMusicSongInfo = async (artist) => {
-  try {
-    const response = await axios.get('https://youtube-music-api3.p.rapidapi.com/search', {
-      headers: {
-        'X-RapidAPI-Key': 'X-RapidAPI-Key',
-        'X-RapidAPI-Host': 'X-RapidAPI-Host',
-      },
-      params: {
-        q: artist,
-        type: 'song',
-      },
-    });
-
-    // Assuming the response contains a list of tracks, you can access them like this
-    const tracks = response.data;
-
-    // Here, you can process the information about the song as needed
-    if (tracks.length === 0) {
-      throw createError(404, 'Song not found');
+exports.searchById = async function (req, res, next) {
+  try{
+    const songItem = await Song.findById(req.params.id)
+    if (!songItem) {
+      return (next(createError(404, "No song with that ID found")))
     }
+    res.send(songItem)
+  } catch (err){
+    return next(createError(500, err.message));
+  }
+};
 
-    // Return the tracks (playlist)
-    return tracks;
-    // Add more properties as needed
-  } catch (error) {
-    console.error(error);
-    throw createError(500, 'Failed to fetch song information from YouTube Music API');
+exports.createSong = async function (req, res, next) {  
+  try{
+    if (!req.body.author || !req.body.title || !req.body.favourite) {
+      return (next(createError(400, "author,title and favourite is required")))
+    }
+    const songItem = new Song({
+      author: req.body.author,
+      title: req.body.title,
+      favourite: req.body.favourite
+    })
+    await songItem.save()
+
+    res.send(songItem)
+  } catch (err) {
+    return next(createError(500, err.message))
   }
 }
 
-exports.getAllSongs = (req, res, next) => { 
-  res.send(songs);
 
-};
+exports.deleteSongs = async function (req, res, next) {
 
-
-exports.createSong = async (req, res, next) => {
-
-const isMissingInformation = !req.body.title || !req.body.author
-if (isMissingInformation) return next(createError(400, 'Please fill out all fields'))
-req.body.id = songs.length + 1 + Date.now()
-songs.push(req.body)
-res.send(songs)
-
-    // try { 
-    //   const songInfo = await getYouTubeMusicSongInfo(req.body);
-
-    //   const newSong = {
-    //     id: songs.length + 1 + Date.now(),
-    //     title: songInfo.title,
-    //     artist: songInfo.artist
-        
-    // }
-    
-    // req.body.id = songs.length + 1 + Date.now();
-    
-// } catch (error) {
-//     console.log(error);
-//     next(createError(500, 'failed to creat song'))
-// }
-
-}
-
-
-exports.deleteSongs = (req, res, next) => {
-    const songId = Number(req.params.id);
-    const songIndex = songs.findIndex((song) => song.id === songId)
-    if(songIndex === -1) return next(createError(404, "Song not found"));
-    songs.splice(songIndex, 1);
-    res.send(songs)
-
-}
-
-
-
-exports.editSong = (req, res, next) => {
-    const titleToEdit = req.params.title;
-    
-    const indexOfEdit = songs.findIndex((song) => song.title === titleToEdit);
-  
-    // Check if the song with the given title is found
-    if (indexOfEdit !== -1) {
-      songs[indexOfEdit].title = req.params.newTitle;
-  
-      return res.send(songs)
+  try {
+    const songToDelete = await Song.findByIdAndDelete(req.params.id)
+    if(!songToDelete) {
+      return next(createError(500, 'no song with that ID'))
     }
-    return next(createError(404, 'Song not found'));
+    res.send({ result: true})
+  } catch (err) {
+    return next(createError(500, err.message))
+  }
+}
+
+
+
+exports.editSong = async function (req, res, next) {
+
+  try {
+    const songToEdit = await Song.findByIdAndUpdate(req.params.id, {
+      author: req.body.author, 
+      title: req.body.title,
+      favourite: req.body.favourite
+    }, { new: true });
+    if(!songToEdit) {
+      return next(createError(500, "No song with that ID"))
+    }
+    
+    res.send(songToEdit)
+
+  } catch (err) {
+    return next(createError(500, "No song with that ID to update"))
+  }
   };
+  
+exports.searchByTitle = async function (req, res, next) {
+  try {
+    const songItem = await Song.find({ title: req.params.title })
+    if(!songItem) {
+      return (next(createError(500, "Title not found")))
+    }
+    res.send(songItem)
+  
+  } catch (err){
+    return next(createError(500, err.message))
+  }
+}
+  
 
 
+  exports.searchByAuthor = async function (req, res, next) {
+    try {
+      const songItem = await Song.find({ author: req.params.author })
+      if (!songItem) {
+        return(next(createError(404, "Author not found")))
+      }
+      
+      res.send(songItem)
 
+    } catch (err){
+      return next(createError(500, err.message))
+    }
+  }
 
-// module.exports = {
-//   getYouTubeMusicSongInfo,
-//   // Add other functions as needed
-// };
+// exports.getSongInfo = async function (res, req, next) {
 
+//   const {author} = req.query.author
 
+// try {
+//   const response = await axios.get('https://youtube-music-api3.p.rapidapi.com/search', {
+//   params: { author, title}, 
+//   headers: {
+//     'X-RapidAPI-Host': apiHost, 
+//     'X-RapidAPI-Key': apiKey, 
+//     'useQueryString': true
+//   }
+//   }); 
+//   return response.data;
+// }catch (error) {
+//   return next(createError(500, "Data not found"))
+// }
+// }
+// exports.addFavo
