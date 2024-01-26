@@ -4,11 +4,6 @@ const createError = require('http-errors');
 const Song = require("../models/playlist");
 
 
-const apiKey = process.env.YoutubeApiKey;
-const apiHost = process.env.YoutubeApiHost;
-
-const songs = []; 
-
 exports.getAllSongs = async function (req, res, next) { 
   try { 
     const songItem = await Song.find();
@@ -67,6 +62,10 @@ exports.deleteSongs = async function (req, res, next) {
 exports.editSong = async function (req, res, next) {
 
   try {
+    if (!req.body.author || !req.body.title || !req.body.favourite) {
+      return (next(createError(400, "author,title and favourite is required")))
+    }
+    
     const songToEdit = await Song.findByIdAndUpdate(req.params.id, {
       author: req.body.author, 
       title: req.body.title,
@@ -112,22 +111,17 @@ exports.searchByTitle = async function (req, res, next) {
     }
   }
 
-// exports.getSongInfo = async function (res, req, next) {
+  exports.searchByFavourite = async function (req, res, next) {
+    try {
+      const songItem = await Song.find({ favourite: req.params.favourite })
+      if (!songItem) {
+        return(next(createError(404, "Songs not found")))
+      }
 
-//   const {author} = req.query.author
+      res.send(songItem)
+    } catch (err){
+      return next(createError(500, err.message))
+    }
+  }
 
-// try {
-//   const response = await axios.get('https://youtube-music-api3.p.rapidapi.com/search', {
-//   params: { author, title}, 
-//   headers: {
-//     'X-RapidAPI-Host': apiHost, 
-//     'X-RapidAPI-Key': apiKey, 
-//     'useQueryString': true
-//   }
-//   }); 
-//   return response.data;
-// }catch (error) {
-//   return next(createError(500, "Data not found"))
-// }
-// }
-// exports.addFavo
+
